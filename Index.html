@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>Route Scanner</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        :root {
+            --bg-primary:#0f0f1a; --bg-secondary:#1a1a2e; --bg-card:#16213e;
+            --accent:#e94560; --accent-glow:rgba(233,69,96,0.3);
+            --success:#0cce6b; --success-glow:rgba(12,206,107,0.3);
+            --warning:#ffa62b; --text-primary:#edf2f4; --text-secondary:#8d99ae;
+            --text-muted:#5c6b7a; --border:rgba(255,255,255,0.08); --radius:14px;
+            --font-display:'JetBrains Mono',monospace; --font-body:'DM Sans',sans-serif;
+        }
+        *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        body{font-family:var(--font-body);background:var(--bg-primary);color:var(--text-primary);min-height:100vh;overflow-x:hidden}
+        .header{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+        .header-left{display:flex;align-items:center;gap:12px}
+        .logo{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#ff6b8a);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+        .app-title{font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:-0.5px}
+        .app-subtitle{font-size:11px;color:var(--text-muted);font-family:var(--font-display)}
+        .header-badge{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-family:var(--font-display);font-size:12px;font-weight:600;color:var(--accent)}
+        .screen{display:none;animation:fadeIn 0.3s ease}.screen.active{display:block}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        .home-content{padding:24px 20px}
+        .date-display{font-family:var(--font-display);font-size:13px;color:var(--text-muted);margin-bottom:24px;letter-spacing:0.5px}
+        .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px}
+        .stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+        .stat-value{font-family:var(--font-display);font-size:32px;font-weight:700;line-height:1}
+        .stat-label{font-size:12px;color:var(--text-muted);margin-top:6px;text-transform:uppercase;letter-spacing:0.5px}
+        .action-buttons{display:flex;flex-direction:column;gap:12px;margin-bottom:28px}
+        .btn-primary{background:linear-gradient(135deg,var(--accent),#ff6b8a);color:white;border:none;border-radius:var(--radius);padding:18px 24px;font-family:var(--font-body);font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 20px var(--accent-glow);transition:all 0.2s}
+        .btn-primary:active{transform:scale(0.98)}
+        .btn-secondary{background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius);padding:16px 24px;font-family:var(--font-body);font-size:15px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.2s}
+        .btn-secondary:active{transform:scale(0.98);background:var(--bg-secondary)}
+        .btn-icon{font-size:20px}
+        .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+        .section-title{font-family:var(--font-display);font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px}
+        .clear-btn{background:none;border:none;color:var(--accent);font-family:var(--font-display);font-size:12px;cursor:pointer;padding:4px 8px}
+        .address-item{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;animation:slideIn 0.3s ease}
+        @keyframes slideIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+        .address-number{background:var(--bg-secondary);color:var(--text-muted);width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:12px;font-weight:600;flex-shrink:0}
+        .address-text{flex:1;font-size:14px;line-height:1.4}
+        .address-remove{background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;padding:4px;border-radius:6px}
+        .empty-state{text-align:center;padding:40px 20px;color:var(--text-muted)}
+        .empty-icon{font-size:48px;margin-bottom:12px;opacity:0.5}
+        .empty-text{font-size:14px;line-height:1.5}
+
+        /* Camera */
+        .camera-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:200}
+        .camera-container{position:relative;width:100%;height:100%}
+        #cameraFeed{width:100%;height:100%;object-fit:cover}
+        .camera-top-bar{position:absolute;top:0;left:0;right:0;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;z-index:10}
+        .camera-close{background:rgba(0,0,0,0.5);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+        .camera-count{background:rgba(0,0,0,0.5);color:white;padding:8px 16px;border-radius:20px;font-family:var(--font-display);font-size:13px}
+        .camera-bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:20px 20px 40px;display:flex;justify-content:center;align-items:center;gap:24px;z-index:10}
+        .capture-btn{width:72px;height:72px;border-radius:50%;background:white;border:4px solid rgba(255,255,255,0.3);cursor:pointer;transition:all 0.15s}
+        .capture-btn:active{transform:scale(0.9)}
+        .capture-btn.processing{background:var(--warning);animation:pulse 1s infinite}
+        .type-btn-camera{background:rgba(0,0,0,0.5);border:2px solid rgba(255,255,255,0.3);color:white;width:50px;height:50px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+        @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,166,43,0.4)}50%{box-shadow:0 0 0 15px rgba(255,166,43,0)}}
+        .flash-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:white;opacity:0;pointer-events:none;z-index:5;transition:opacity 0.1s}
+        .flash-overlay.flash{opacity:0.5}
+
+        /* Adjustable scan rectangle */
+        .scan-rect-container{position:absolute;top:0;left:0;width:100%;height:100%;z-index:8}
+        .scan-dimming{position:absolute;top:0;left:0;width:100%;height:100%}
+        #scanBox{position:absolute;border:3px solid var(--accent);border-radius:8px;cursor:move;touch-action:none;box-shadow:0 0 20px var(--accent-glow),inset 0 0 20px rgba(233,69,96,0.1)}
+        #scanBox .resize-handle{position:absolute;width:30px;height:30px;background:var(--accent);border-radius:50%;z-index:2}
+        #scanBox .resize-handle.tl{top:-15px;left:-15px;cursor:nw-resize}
+        #scanBox .resize-handle.tr{top:-15px;right:-15px;cursor:ne-resize}
+        #scanBox .resize-handle.bl{bottom:-15px;left:-15px;cursor:sw-resize}
+        #scanBox .resize-handle.br{bottom:-15px;right:-15px;cursor:se-resize}
+        .scan-hint{position:absolute;top:60px;left:0;right:0;text-align:center;color:white;font-family:var(--font-display);font-size:12px;text-shadow:0 2px 8px rgba(0,0,0,0.8);z-index:9;pointer-events:none}
+
+        /* Confirm overlay */
+        .confirm-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);z-index:20;display:none;flex-direction:column;justify-content:center;padding:24px}
+        .confirm-overlay.active{display:flex}
+        .confirm-title{font-family:var(--font-display);font-size:16px;color:var(--success);margin-bottom:16px}
+        .confirm-address-input{background:var(--bg-card);border:2px solid var(--accent);border-radius:var(--radius);padding:16px;color:var(--text-primary);font-family:var(--font-body);font-size:18px;line-height:1.5;width:100%;min-height:120px;resize:none;outline:none}
+        .confirm-hint{font-size:13px;color:var(--text-muted);margin-top:10px;margin-bottom:24px}
+        .confirm-actions{display:flex;gap:12px}
+        .confirm-actions button{flex:1;padding:18px;border-radius:var(--radius);font-family:var(--font-body);font-size:16px;font-weight:700;cursor:pointer;border:none}
+        .btn-confirm-add{background:var(--success);color:white;box-shadow:0 4px 15px var(--success-glow)}
+        .btn-confirm-retry{background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border)!important}
+
+        /* Export */
+        .export-content{padding:24px 20px}
+        .export-section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+        .export-section-title{font-family:var(--font-display);font-size:14px;font-weight:600;margin-bottom:6px}
+        .export-section-desc{font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.5}
+        .export-btn{width:100%;padding:14px;border-radius:10px;font-family:var(--font-body);font-size:15px;font-weight:600;cursor:pointer;border:none;display:flex;align-items:center;justify-content:center;gap:8px}
+        .export-btn:active{transform:scale(0.98)}
+        .export-btn-clipboard{background:linear-gradient(135deg,var(--accent),#ff6b8a);color:white;box-shadow:0 4px 15px var(--accent-glow)}
+        .export-btn-csv{background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border)!important}
+        .export-preview{background:var(--bg-primary);border-radius:10px;padding:14px;margin-top:16px;max-height:200px;overflow-y:auto}
+        .export-preview-line{font-family:var(--font-display);font-size:12px;color:var(--text-secondary);padding:4px 0;border-bottom:1px solid var(--border)}
+        .export-preview-line:last-child{border-bottom:none}
+        .back-btn{background:none;border:none;color:var(--text-secondary);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:8px 0;margin-bottom:16px}
+        .log-content{padding:24px 20px}
+        .log-entry{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+        .log-date{font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--accent)}
+        .log-count{font-size:13px;color:var(--text-muted);margin-top:4px}
+        .log-addresses{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:none}
+        .log-addresses.expanded{display:block}
+        .log-address-item{font-size:13px;color:var(--text-secondary);padding:3px 0;font-family:var(--font-display)}
+        .log-toggle{background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;padding:4px 0;margin-top:6px}
+        .manual-add-content{padding:24px 20px}
+        .manual-input{background:var(--bg-card);border:2px solid var(--border);border-radius:var(--radius);padding:16px;color:var(--text-primary);font-family:var(--font-body);font-size:16px;width:100%;outline:none;margin-bottom:12px}
+        .manual-input:focus{border-color:var(--accent)}
+        .manual-input::placeholder{color:var(--text-muted)}
+        .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--success);color:white;padding:14px 24px;border-radius:10px;font-family:var(--font-display);font-size:14px;font-weight:600;z-index:999;transition:transform 0.3s;box-shadow:0 4px 20px var(--success-glow);max-width:90%;text-align:center}
+        .toast.error{background:var(--accent);box-shadow:0 4px 20px var(--accent-glow)}
+        .toast.show{transform:translateX(-50%) translateY(0)}
+        .ocr-loading{position:absolute;top:50%;left:50%;transform:translate(-50%,100px);background:rgba(0,0,0,0.8);color:white;padding:14px 24px;border-radius:20px;font-family:var(--font-display);font-size:14px;display:none;z-index:15}
+        .ocr-loading.active{display:flex;align-items:center;gap:10px}
+        .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        #ocrCanvas{display:none}
+    </style>
+</head>
+<body>
+    <div id="toast" class="toast"></div>
+
+    <!-- HOME -->
+    <div id="homeScreen" class="screen active">
+        <div class="header">
+            <div class="header-left"><div class="logo">📍</div><div><div class="app-title">ROUTE SCANNER</div><div class="app-subtitle">Trinity Pharmacy</div></div></div>
+            <div class="header-badge" id="addressCount">0 STOPS</div>
+        </div>
+        <div class="home-content">
+            <div class="date-display" id="dateDisplay"></div>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-value" id="todayCount">0</div><div class="stat-label">Today's Stops</div></div>
+                <div class="stat-card"><div class="stat-value" id="totalScanned">0</div><div class="stat-label">All-Time Scans</div></div>
+            </div>
+            <div class="action-buttons">
+                <button class="btn-primary" onclick="openCamera()"><span class="btn-icon">📸</span> Scan Label</button>
+                <button class="btn-secondary" onclick="showManualAdd()"><span class="btn-icon">⌨️</span> Type Address</button>
+                <button class="btn-secondary" onclick="showExport()" id="exportBtn" style="display:none"><span class="btn-icon">🚀</span> Send to RoadWarrior</button>
+            </div>
+            <div class="address-list-section">
+                <div class="section-header"><div class="section-title">Today's Route</div><button class="clear-btn" onclick="clearAddresses()" id="clearBtn" style="display:none">Clear All</button></div>
+                <div id="addressList"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No addresses yet.<br>Scan a label or type one in.</div></div></div>
+            </div>
+            <button class="btn-secondary" onclick="showLog()" style="margin-top:20px"><span class="btn-icon">📊</span> Delivery Log</button>
+        </div>
+    </div>
+
+    <!-- CAMERA -->
+    <div id="cameraScreen" class="camera-screen" style="display:none">
+        <div class="camera-container">
+            <video id="cameraFeed" autoplay playsinline></video>
+            <div class="flash-overlay" id="flashOverlay"></div>
+
+            <!-- Adjustable scan rectangle -->
+            <div class="scan-rect-container" id="scanRectContainer">
+                <canvas class="scan-dimming" id="dimmingCanvas"></canvas>
+                <div id="scanBox">
+                    <div class="resize-handle tl" data-handle="tl"></div>
+                    <div class="resize-handle tr" data-handle="tr"></div>
+                    <div class="resize-handle bl" data-handle="bl"></div>
+                    <div class="resize-handle br" data-handle="br"></div>
+                </div>
+            </div>
+
+            <div class="scan-hint" id="scanHint">Drag box over address • Drag corners to resize</div>
+
+            <div class="camera-top-bar">
+                <button class="camera-close" onclick="closeCamera()">✕</button>
+                <div class="camera-count" id="cameraCount">0 scanned</div>
+            </div>
+            <div class="ocr-loading" id="ocrLoading"><div class="spinner"></div><span>Reading address...</span></div>
+            <div class="camera-bottom-bar">
+                <button class="type-btn-camera" onclick="typeFromCamera()">⌨️</button>
+                <button class="capture-btn" id="captureBtn" onclick="captureAddress()"></button>
+                <div style="width:50px"></div>
+            </div>
+
+            <div class="confirm-overlay" id="confirmOverlay">
+                <div class="confirm-title">✅ ADDRESS DETECTED</div>
+                <textarea class="confirm-address-input" id="confirmInput" rows="3" placeholder="Edit if needed..."></textarea>
+                <div class="confirm-hint">Edit if needed, then tap ADD TO ROUTE</div>
+                <div class="confirm-actions">
+                    <button class="btn-confirm-retry" onclick="retryCapture()">↩ Retry</button>
+                    <button class="btn-confirm-add" onclick="confirmAddress()">✓ ADD TO ROUTE</button>
+                </div>
+            </div>
+            <div class="confirm-overlay" id="typeOverlay">
+                <div class="confirm-title">⌨️ TYPE ADDRESS</div>
+                <input type="text" class="confirm-address-input" id="typeInput" placeholder="Street address..." style="min-height:auto;padding:16px;font-size:18px">
+                <input type="text" class="confirm-address-input" id="typeCityInput" value="Las Vegas, NV" style="min-height:auto;padding:16px;font-size:16px;margin-top:10px;border-color:var(--border)">
+                <div class="confirm-hint">City defaults to Las Vegas.</div>
+                <div class="confirm-actions">
+                    <button class="btn-confirm-retry" onclick="closeTypeOverlay()">← Back</button>
+                    <button class="btn-confirm-add" onclick="addTypedFromCamera()">✓ ADD TO ROUTE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MANUAL ADD -->
+    <div id="manualScreen" class="screen">
+        <div class="header"><div class="header-left"><div class="logo">⌨️</div><div><div class="app-title">TYPE ADDRESS</div></div></div></div>
+        <div class="manual-add-content">
+            <button class="back-btn" onclick="showHome()">← Back to Route</button>
+            <input type="text" class="manual-input" id="manualInput" placeholder="Enter street address...">
+            <input type="text" class="manual-input" id="manualCity" placeholder="City, State, ZIP" value="Las Vegas, NV ">
+            <button class="btn-primary" onclick="addManualAddress()" style="margin-top:8px"><span class="btn-icon">✓</span> Add to Route</button>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:12px;text-align:center">City defaults to Las Vegas.</p>
+        </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div id="exportScreen" class="screen">
+        <div class="header"><div class="header-left"><div class="logo">🚀</div><div><div class="app-title">EXPORT ROUTE</div></div></div></div>
+        <div class="export-content">
+            <button class="back-btn" onclick="showHome()">← Back to Route</button>
+            <div class="export-section"><div class="export-section-title">📋 Copy for RoadWarrior</div><div class="export-section-desc">Copies all addresses. Open RoadWarrior → New Route → paste.</div><button class="export-btn export-btn-clipboard" onclick="copyToClipboard()">📋 Copy All Addresses</button></div>
+            <div class="export-section"><div class="export-section-title">📄 Download CSV</div><div class="export-section-desc">Import via RoadWarrior's spreadsheet upload.</div><button class="export-btn export-btn-csv" onclick="downloadCSV()">⬇ Download CSV File</button></div>
+            <div class="export-section"><div class="export-section-title">Preview</div><div class="export-preview" id="exportPreview"></div></div>
+        </div>
+    </div>
+
+    <!-- LOG -->
+    <div id="logScreen" class="screen">
+        <div class="header"><div class="header-left"><div class="logo">📊</div><div><div class="app-title">DELIVERY LOG</div></div></div></div>
+        <div class="log-content">
+            <button class="back-btn" onclick="showHome()">← Back to Route</button>
+            <div id="logEntries"></div>
+        </div>
+    </div>
+
+    <canvas id="ocrCanvas"></canvas>
+
+    <script>
+        let addresses = [];
+        let deliveryLog = JSON.parse(localStorage.getItem('deliveryLog') || '[]');
+        let totalScanned = parseInt(localStorage.getItem('totalScanned') || '0');
+        let cameraStream = null;
+
+        // Scan box state
+        let scanBox = {x: 0, y: 0, w: 0, h: 0};
+        let isDragging = false;
+        let isResizing = false;
+        let activeHandle = null;
+        let dragStart = {x: 0, y: 0};
+        let boxStart = {x: 0, y: 0, w: 0, h: 0};
+
+        function init() {
+            const today = new Date().toISOString().split('T')[0];
+            const savedDate = localStorage.getItem('addressDate');
+            if (savedDate === today) {
+                const saved = localStorage.getItem('todayAddresses');
+                if (saved) addresses = JSON.parse(saved);
+            } else {
+                localStorage.removeItem('todayAddresses');
+                localStorage.setItem('addressDate', today);
+            }
+            updateUI();
+            updateDate();
+            setupScanBox();
+        }
+
+        function updateDate() {
+            document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}).toUpperCase();
+        }
+
+        function saveAddresses() {
+            localStorage.setItem('todayAddresses', JSON.stringify(addresses));
+            localStorage.setItem('addressDate', new Date().toISOString().split('T')[0]);
+        }
+
+        function updateUI() {
+            document.getElementById('todayCount').textContent = addresses.length;
+            document.getElementById('totalScanned').textContent = totalScanned;
+            document.getElementById('addressCount').textContent = addresses.length + ' STOP' + (addresses.length !== 1 ? 'S' : '');
+            document.getElementById('exportBtn').style.display = addresses.length > 0 ? 'flex' : 'none';
+            document.getElementById('clearBtn').style.display = addresses.length > 0 ? 'block' : 'none';
+            const list = document.getElementById('addressList');
+            if (addresses.length === 0) {
+                list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No addresses yet.<br>Scan a label or type one in.</div></div>';
+            } else {
+                list.innerHTML = addresses.map((addr,i) => '<div class="address-item"><div class="address-number">'+(i+1)+'</div><div class="address-text">'+addr+'</div><button class="address-remove" onclick="removeAddress('+i+')">✕</button></div>').join('');
+            }
+            saveAddresses();
+        }
+
+        // ===== SCAN BOX (draggable + resizable) =====
+        function setupScanBox() {
+            const box = document.getElementById('scanBox');
+            const container = document.getElementById('scanRectContainer');
+
+            // Touch events for the box (drag)
+            box.addEventListener('touchstart', function(e) {
+                if (e.target.classList.contains('resize-handle')) return;
+                e.preventDefault();
+                isDragging = true;
+                const t = e.touches[0];
+                dragStart = {x: t.clientX, y: t.clientY};
+                boxStart = {x: scanBox.x, y: scanBox.y, w: scanBox.w, h: scanBox.h};
+            }, {passive: false});
+
+            // Touch events for resize handles
+            box.querySelectorAll('.resize-handle').forEach(handle => {
+                handle.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    isResizing = true;
+                    activeHandle = this.dataset.handle;
+                    const t = e.touches[0];
+                    dragStart = {x: t.clientX, y: t.clientY};
+                    boxStart = {x: scanBox.x, y: scanBox.y, w: scanBox.w, h: scanBox.h};
+                }, {passive: false});
+            });
+
+            document.addEventListener('touchmove', function(e) {
+                if (!isDragging && !isResizing) return;
+                e.preventDefault();
+                const t = e.touches[0];
+                const dx = t.clientX - dragStart.x;
+                const dy = t.clientY - dragStart.y;
+                const maxW = window.innerWidth;
+                const maxH = window.innerHeight;
+
+                if (isDragging) {
+                    scanBox.x = Math.max(0, Math.min(boxStart.x + dx, maxW - scanBox.w));
+                    scanBox.y = Math.max(0, Math.min(boxStart.y + dy, maxH - scanBox.h));
+                } else if (isResizing) {
+                    const minSize = 60;
+                    if (activeHandle === 'br') {
+                        scanBox.w = Math.max(minSize, boxStart.w + dx);
+                        scanBox.h = Math.max(minSize, boxStart.h + dy);
+                    } else if (activeHandle === 'bl') {
+                        const newW = Math.max(minSize, boxStart.w - dx);
+                        scanBox.x = boxStart.x + boxStart.w - newW;
+                        scanBox.w = newW;
+                        scanBox.h = Math.max(minSize, boxStart.h + dy);
+                    } else if (activeHandle === 'tr') {
+                        scanBox.w = Math.max(minSize, boxStart.w + dx);
+                        const newH = Math.max(minSize, boxStart.h - dy);
+                        scanBox.y = boxStart.y + boxStart.h - newH;
+                        scanBox.h = newH;
+                    } else if (activeHandle === 'tl') {
+                        const newW = Math.max(minSize, boxStart.w - dx);
+                        const newH = Math.max(minSize, boxStart.h - dy);
+                        scanBox.x = boxStart.x + boxStart.w - newW;
+                        scanBox.y = boxStart.y + boxStart.h - newH;
+                        scanBox.w = newW;
+                        scanBox.h = newH;
+                    }
+                }
+                renderScanBox();
+            }, {passive: false});
+
+            document.addEventListener('touchend', function() {
+                isDragging = false;
+                isResizing = false;
+                activeHandle = null;
+            });
+        }
+
+        function initScanBoxPosition() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            scanBox = {
+                x: w * 0.05,
+                y: h * 0.35,
+                w: w * 0.9,
+                h: 140
+            };
+            renderScanBox();
+        }
+
+        function renderScanBox() {
+            const box = document.getElementById('scanBox');
+            box.style.left = scanBox.x + 'px';
+            box.style.top = scanBox.y + 'px';
+            box.style.width = scanBox.w + 'px';
+            box.style.height = scanBox.h + 'px';
+
+            // Draw dimming overlay with cutout
+            const canvas = document.getElementById('dimmingCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            ctx.fillStyle = 'rgba(0,0,0,0.55)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(scanBox.x, scanBox.y, scanBox.w, scanBox.h);
+        }
+
+        // ===== NAVIGATION =====
+        function showScreen(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+        function showHome() { showScreen('homeScreen'); }
+        function showManualAdd() { showScreen('manualScreen'); document.getElementById('manualInput').focus(); }
+        function showExport() {
+            showScreen('exportScreen');
+            document.getElementById('exportPreview').innerHTML = addresses.map((a,i)=>'<div class="export-preview-line">'+(i+1)+'. '+a+'</div>').join('');
+        }
+        function showLog() {
+            showScreen('logScreen');
+            const el = document.getElementById('logEntries');
+            if (!deliveryLog.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">No logs yet.</div></div>'; return; }
+            el.innerHTML = deliveryLog.slice().reverse().map(log => '<div class="log-entry"><div class="log-date">'+log.date+'</div><div class="log-count">'+log.addresses.length+' deliveries</div><button class="log-toggle" onclick="this.nextElementSibling.classList.toggle(\'expanded\');this.textContent=this.nextElementSibling.classList.contains(\'expanded\')?\'Hide ▲\':\'Show ▼\'">Show ▼</button><div class="log-addresses">'+log.addresses.map(a=>'<div class="log-address-item">• '+a+'</div>').join('')+'</div></div>').join('');
+        }
+
+        // ===== CAMERA =====
+        async function openCamera() {
+            document.getElementById('cameraScreen').style.display = 'block';
+            document.getElementById('cameraCount').textContent = addresses.length + ' scanned';
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}});
+                document.getElementById('cameraFeed').srcObject = cameraStream;
+                setTimeout(initScanBoxPosition, 300);
+            } catch(err) {
+                showToast('Camera blocked! Check Settings → Apps → Chrome → Permissions → Camera', true);
+                closeCamera();
+            }
+        }
+
+        function closeCamera() {
+            if (cameraStream) { cameraStream.getTracks().forEach(t=>t.stop()); cameraStream = null; }
+            document.getElementById('cameraScreen').style.display = 'none';
+            document.getElementById('confirmOverlay').classList.remove('active');
+            document.getElementById('typeOverlay').classList.remove('active');
+            updateUI();
+        }
+
+        async function captureAddress() {
+            const btn = document.getElementById('captureBtn');
+            const loading = document.getElementById('ocrLoading');
+            const flash = document.getElementById('flashOverlay');
+            if (btn.classList.contains('processing')) return;
+
+            flash.classList.add('flash');
+            setTimeout(() => flash.classList.remove('flash'), 200);
+            btn.classList.add('processing');
+            loading.classList.add('active');
+            loading.querySelector('span').textContent = 'Capturing...';
+
+            try {
+                const video = document.getElementById('cameraFeed');
+                const canvas = document.getElementById('ocrCanvas');
+                const ctx = canvas.getContext('2d');
+
+                if (!video.videoWidth || !video.videoHeight) {
+                    showToast('Camera not ready. Wait a moment.', true);
+                    btn.classList.remove('processing'); loading.classList.remove('active');
+                    return;
+                }
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0);
+
+                // Use the adjustable scan box coordinates
+                const viewW = video.clientWidth;
+                const viewH = video.clientHeight;
+                const scaleX = video.videoWidth / viewW;
+                const scaleY = video.videoHeight / viewH;
+
+                const cropX = Math.max(0, Math.floor(scanBox.x * scaleX));
+                const cropY = Math.max(0, Math.floor(scanBox.y * scaleY));
+                const cropW = Math.min(Math.floor(scanBox.w * scaleX), video.videoWidth - cropX);
+                const cropH = Math.min(Math.floor(scanBox.h * scaleY), video.videoHeight - cropY);
+
+                const cropCanvas = document.createElement('canvas');
+                cropCanvas.width = cropW;
+                cropCanvas.height = cropH;
+                const cropCtx = cropCanvas.getContext('2d');
+                cropCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+                // Enhance for OCR
+                const imgData = cropCtx.getImageData(0, 0, cropW, cropH);
+                const d = imgData.data;
+                for (let i = 0; i < d.length; i += 4) {
+                    const gray = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
+                    const v = gray > 140 ? 255 : 0;
+                    d[i]=v; d[i+1]=v; d[i+2]=v;
+                }
+                cropCtx.putImageData(imgData, 0, 0);
+
+                loading.querySelector('span').textContent = 'Reading text...';
+
+                const result = await Tesseract.recognize(cropCanvas, 'eng', {
+                    logger: m => {
+                        if (m.status === 'recognizing text') loading.querySelector('span').textContent = 'Reading... ' + Math.round(m.progress*100) + '%';
+                    }
+                });
+
+                const text = result.data.text.trim();
+                console.log('OCR raw:', text);
+
+                if (text.length > 2) {
+                    const cleaned = text.replace(/\n/g,' ').replace(/\s+/g,' ').replace(/[|{}[\]~`]/g,'').replace(/^[^a-zA-Z0-9]+/,'').trim();
+                    document.getElementById('confirmInput').value = cleaned;
+                    document.getElementById('confirmOverlay').classList.add('active');
+                } else {
+                    showToast('No text found. Resize box or use ⌨️ to type.', true);
+                }
+            } catch(err) {
+                console.error('OCR error:', err);
+                showToast('Scan error. Use ⌨️ button to type.', true);
+            }
+            btn.classList.remove('processing');
+            loading.classList.remove('active');
+        }
+
+        function confirmAddress() {
+            const addr = document.getElementById('confirmInput').value.trim();
+            if (addr) {
+                addresses.push(addr);
+                totalScanned++;
+                localStorage.setItem('totalScanned', String(totalScanned));
+                saveAddresses();
+                document.getElementById('cameraCount').textContent = addresses.length + ' scanned';
+                showToast('✓ Added: ' + addr.substring(0, 35));
+            }
+            document.getElementById('confirmOverlay').classList.remove('active');
+            document.getElementById('confirmInput').value = '';
+        }
+
+        function retryCapture() {
+            document.getElementById('confirmOverlay').classList.remove('active');
+            document.getElementById('confirmInput').value = '';
+        }
+
+        function typeFromCamera() {
+            document.getElementById('typeOverlay').classList.add('active');
+            setTimeout(() => document.getElementById('typeInput').focus(), 100);
+        }
+        function closeTypeOverlay() {
+            document.getElementById('typeOverlay').classList.remove('active');
+            document.getElementById('typeInput').value = '';
+        }
+        function addTypedFromCamera() {
+            const street = document.getElementById('typeInput').value.trim();
+            const city = document.getElementById('typeCityInput').value.trim();
+            if (!street) { showToast('Enter a street address', true); return; }
+            const full = city ? street+', '+city : street;
+            addresses.push(full);
+            totalScanned++;
+            localStorage.setItem('totalScanned', String(totalScanned));
+            saveAddresses();
+            document.getElementById('cameraCount').textContent = addresses.length + ' scanned';
+            showToast('✓ Added: ' + full.substring(0, 35));
+            document.getElementById('typeInput').value = '';
+            document.getElementById('typeOverlay').classList.remove('active');
+        }
+
+        function addManualAddress() {
+            const street = document.getElementById('manualInput').value.trim();
+            const city = document.getElementById('manualCity').value.trim();
+            if (!street) { showToast('Enter a street address', true); return; }
+            const full = city ? street+', '+city : street;
+            addresses.push(full);
+            totalScanned++;
+            localStorage.setItem('totalScanned', String(totalScanned));
+            document.getElementById('manualInput').value = '';
+            showToast('✓ Added: ' + full.substring(0, 35));
+            updateUI(); showHome();
+        }
+
+        function removeAddress(i) { addresses.splice(i, 1); updateUI(); }
+        function clearAddresses() { if (confirm('Clear all addresses?')) { addresses = []; updateUI(); } }
+
+        function copyToClipboard() {
+            const text = addresses.join('\n');
+            navigator.clipboard.writeText(text).then(() => { saveToLog(); showToast('✓ Copied! Open RoadWarrior and paste.'); }).catch(() => {
+                const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                saveToLog(); showToast('✓ Copied! Open RoadWarrior and paste.');
+            });
+        }
+        function downloadCSV() {
+            const csv = 'Address\n' + addresses.join('\n');
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+            a.download = 'route_'+new Date().toISOString().split('T')[0]+'.csv'; a.click();
+            saveToLog(); showToast('✓ CSV downloaded');
+        }
+        function saveToLog() {
+            const today = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+            const idx = deliveryLog.findIndex(l=>l.date===today);
+            if (idx >= 0) deliveryLog[idx].addresses = [...addresses];
+            else deliveryLog.push({date:today, addresses:[...addresses]});
+            localStorage.setItem('deliveryLog', JSON.stringify(deliveryLog));
+        }
+
+        function showToast(msg, isError) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast' + (isError ? ' error' : '');
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), isError ? 4000 : 2500);
+        }
+
+        document.getElementById('manualInput').addEventListener('keydown', e => { if (e.key === 'Enter') addManualAddress(); });
+        init();
+    </script>
+</body>
+</html>
